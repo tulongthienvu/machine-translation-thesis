@@ -69,8 +69,11 @@ def annotate_unk(tokens, vocab_map, max_num_unks=-1, default_unk='<unk>'):
 
   return (unk_tokens, num_unk_tokens, num_unk_types)
 
+# def to_id(tokens, vocab_map, offset=0, unk='<unk>'):
+#   return [str(vocab_map[token]+offset) if token in vocab_map else str(vocab_map[unk]+offset) for token in tokens]
+
 def to_id(tokens, vocab_map, offset=0, unk='<unk>'):
-  return [str(vocab_map[token]+offset) if token in vocab_map else str(vocab_map[unk]+offset) for token in tokens]
+  return [vocab_map[token]+offset if token in vocab_map else vocab_map[unk]+offset for token in tokens]
     
 def to_text(indices, words, offset=0):
   return [words[int(index)-offset] for index in indices]
