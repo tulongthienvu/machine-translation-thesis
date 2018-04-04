@@ -78,8 +78,10 @@ class LuongNMTDataset(torchtext.data.Dataset):
         examples = []
         with open(src_path) as src_file, open(trg_path) as trg_file:
             for src_line, trg_line in tqdm(zip(src_file, trg_file)):
-                src_line = map(int, src_line.strip().split(' '))
-                trg_line = map(int, trg_line.strip().split(' '))
+                # src_line = map(int, src_line.strip().split(' '))
+                # trg_line = map(int, trg_line.strip().split(' '))
+                src_line = src_line.strip().split(' ')
+                trg_line = trg_line.strip().split(' ')
                 if MAX_LENGTH is not None:
                     if len(src_line) > MAX_LENGTH or len(trg_line) > MAX_LENGTH:
                         continue
@@ -101,15 +103,26 @@ with open(data_path + 'train.10k.en') as f:
 
 # In[ ]:
 
+def post_processing(arr, field_vocab, train):
+    for index in range(0, len(arr)):
+        arr[index] = map(int, arr[index])
+    return arr
 
-src_field = torchtext.data.Field(sequential=False,
+
+src_field = torchtext.data.Field(sequential=True,
 #                                  tokenize=(lambda line: int(line)),
-                                 use_vocab=False, 
-                                 batch_first=True
+                                 postprocessing=post_processing,
+                                 use_vocab=False,
+                                 pad_token='0',
+                                 include_lengths=True,
+                                 batch_first=True,
                                  )
-trg_field = torchtext.data.Field(sequential=False,
+trg_field = torchtext.data.Field(sequential=True,
 #                                  tokenize=(lambda line: int(line)),
-                                 use_vocab=False, 
+                                 postprocessing=post_processing,
+                                 use_vocab=False,
+                                 include_lengths=True,
+                                 pad_token='0',
                                  batch_first=True
                                  )
 
