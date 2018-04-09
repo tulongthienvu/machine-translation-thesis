@@ -40,7 +40,7 @@ import scripts.text
 import utils
 
 use_cuda = True
-batch_size = 16
+batch_size = 32
 learning_rate = 0.01
 # # Load data
 
@@ -150,11 +150,12 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
     loss = 0
 
     # Run words through encoder
-    encoder_hidden = encoder.init_hidden()
+    encoder_hidden = encoder.init_hidden(len(input_variables))
     encoder_outputs, encoder_hidden = encoder(input_variables, input_lengths, encoder_hidden)
 
     # Prepare input for decoder and output variables
-    decoder_input = torch.zeros((batch_size, 1), ).type(torch.LongTensor)
+    # decoder_input = torch.zeros((batch_size, 1), ).type(torch.LongTensor)
+    decoder_input = torch.zeros((len(input_variables), 1)).type(torch.LongTensor)
     decoder_input += de_vocab['<s>']
     decoder_hidden = encoder_hidden  # Use last hidden from the encoder
 
@@ -183,7 +184,8 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
             top_value, top_index = decoder_output.data.topk(1)
             n_i = top_index
             # Modify for mini-batch implement
-            decoder_input = torch.zeros((batch_size, 1), ).type(torch.LongTensor)
+            # decoder_input = torch.zeros((batch_size, 1), ).type(torch.LongTensor)
+            decoder_input = torch.zeros((len(input_variables), 1)).type(torch.LongTensor)
             if use_cuda:  # not optimized yet
                 decoder_input = decoder_input.cuda()
             decoder_input += n_i
@@ -207,12 +209,12 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
 # Set hyperparameters
 embedding_size = 64
 hidden_size = 64
-num_layers = 2
+num_layers = 1
 dropout_p = 0.00
 
 # Initialize models
-encoder = EncoderRNN(len(en_vocab), embedding_size, hidden_size, batch_size, num_layers)
-decoder = DecoderRNN(embedding_size, hidden_size, len(de_vocab), batch_size, num_layers)
+encoder = EncoderRNN(len(en_vocab), embedding_size, hidden_size, num_layers)
+decoder = DecoderRNN(embedding_size, hidden_size, len(de_vocab), num_layers)
 
 # Move models to GPU
 if use_cuda:
@@ -221,10 +223,10 @@ if use_cuda:
 
 # Initialize parameters and criterion
 # learning_rate = 0.0001
-# encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr=learning_rate)
-# decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr=learning_rate)
-encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
-decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
+encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr=learning_rate)
+decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr=learning_rate)
+# encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
+# decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
 # criterion = nn.NLLLoss(ignore_index=1000)
 criterion = nn.NLLLoss()
 
@@ -246,8 +248,7 @@ for epoch in range(0, num_epochs):
     # Shuffle
     step = 1
     num_steps = math.ceil(len(train_dataset) / batch_size)
-    encoder.batch_size = batch_size
-    decoder.batch_size = batch_size
+
     for batch in train_loader:
         input_variables, input_lengths = batch.src
         target_variables, target_lengths = batch.trg

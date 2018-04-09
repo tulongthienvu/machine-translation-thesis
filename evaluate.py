@@ -5,9 +5,6 @@ MAX_LENGTH = 50
 
 def evaluate(data_loader, encoder, decoder, criterion, en_vocab, de_vocab, max_lenth=MAX_LENGTH, use_cuda=True):
     # Zero gradient
-    batch_size = data_loader.batch_size
-    encoder.batch_size = batch_size
-    decoder.batch_size = batch_size
     i = 0
     total_loss = 0
     for batch in data_loader:
@@ -18,11 +15,11 @@ def evaluate(data_loader, encoder, decoder, criterion, en_vocab, de_vocab, max_l
         loss = 0
 
         # Run words through encoder
-        encoder_hidden = encoder.init_hidden()
+        encoder_hidden = encoder.init_hidden(len(input_variables))
         encoder_outputs, encoder_hidden = encoder(input_variables, input_lengths, encoder_hidden)
 
         # Prepare input for decoder and output variables
-        decoder_input = torch.zeros((batch_size, 1), ).type(torch.LongTensor)
+        decoder_input = torch.zeros((len(input_variables), 1)).type(torch.LongTensor)
         decoder_input += de_vocab['<s>']
         decoder_hidden = encoder_hidden  # Use last hidden from the encoder
 
@@ -40,7 +37,7 @@ def evaluate(data_loader, encoder, decoder, criterion, en_vocab, de_vocab, max_l
             top_value, top_index = decoder_output.data.topk(1)
             n_i = top_index
             # Modify for mini-batch implement
-            decoder_input = torch.zeros((batch_size, 1), ).type(torch.LongTensor)
+            decoder_input = torch.zeros((len(input_variables), 1)).type(torch.LongTensor)
             if use_cuda:  # not optimized yet
                 decoder_input = decoder_input.cuda()
             decoder_input += n_i

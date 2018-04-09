@@ -11,7 +11,7 @@ class EncoderRNN(nn.Module):
         Model's encoder using RNN.
     """
 
-    def __init__(self, input_size, embedding_size, hidden_size, batch_size, num_layers=1, use_cuda=True):
+    def __init__(self, input_size, embedding_size, hidden_size, num_layers=1, use_cuda=True):
         super(EncoderRNN, self).__init__()
 
         self.input_size = input_size
@@ -19,11 +19,11 @@ class EncoderRNN(nn.Module):
         self.num_layers = num_layers
         self.embedding_size = embedding_size
 
-        self.embedding = nn.Embedding(input_size + 1, embedding_size, padding_idx=1000)
+        input_size += 1
+        self.embedding = nn.Embedding(input_size, embedding_size, padding_idx=1000)
         # self.embedding = nn.Embedding(input_size + 1, embedding_size)
         self.rnn = nn.GRU(embedding_size, hidden_size, num_layers, batch_first=True)
         self.init_weights()
-        self.batch_size = batch_size
         self.use_cuda = use_cuda
 
     def forward(self, input_sentences, input_lengths, hidden):
@@ -38,11 +38,12 @@ class EncoderRNN(nn.Module):
         # print(output)
         return output, hidden
 
-    def init_hidden(self):
+    def init_hidden(self, actual_batch_size):
         """
             Initialize hidden state.
         """
-        hidden = Variable(torch.zeros(self.num_layers, self.batch_size, self.hidden_size))
+        # hidden = Variable(torch.zeros(self.num_layers, self.batch_size, self.hidden_size))
+        hidden = Variable(torch.zeros(self.num_layers, actual_batch_size, self.hidden_size))
         if self.use_cuda:
             hidden = hidden.cuda()
         return hidden
@@ -59,7 +60,7 @@ class DecoderRNN(nn.Module):
         Model's decoder using RNN.
     """
 
-    def __init__(self, embedding_size, hidden_size, output_size, batch_size, num_layers=1, use_cuda=True):
+    def __init__(self, embedding_size, hidden_size, output_size, num_layers=1, use_cuda=True):
         super(DecoderRNN, self).__init__()
         output_size += 1
         self.embedding = nn.Embedding(output_size, embedding_size, padding_idx=1000)
@@ -69,27 +70,27 @@ class DecoderRNN(nn.Module):
         self.log_softmax = nn.LogSoftmax(dim=2)
         self.init_weights()
 
-        self.batch_size = batch_size
         self.use_cuda = use_cuda
 
     def forward(self, input_vector, hidden):
         # view(batch_size, sentence_length, -1)
-        output = self.embedding(input_vector).view(self.batch_size, 1, -1)
+        # output = self.embedding(input_vector).view(self.batch_size, 1, -1)
+        output = self.embedding(input_vector).view(len(input_vector), 1, -1)
         output = F.relu(output)
         # output = rnn_utils.pack_sequence(output)
         output, hidden = self.rnn(output, hidden)
         # print("Output: ", output)
         # output = self.log_softmax(self.linear_out(output[-1]))
         output = self.log_softmax(self.linear_out(output))  # Change dim for packed sequence
-        output = output.view(self.batch_size, -1)
+        output = output.view(len(input_vector), -1)
         # print("output final: ", output)
         return output, hidden
 
-    def init_hidden(self):
+    def init_hidden(self, actual_batch_size):
         """
             Initialize hidden state.
         """
-        hidden = Variable(torch.zeros(self.num_layers, self.batch_size, self.hidden_size))
+        hidden = Variable(torch.zeros(self.num_layers, actual_batch_size, self.hidden_size))
         if self.use_cuda:
             hidden = hidden.cuda()
         return hidden
