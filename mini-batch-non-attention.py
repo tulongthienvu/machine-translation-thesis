@@ -230,7 +230,7 @@ criterion = nn.NLLLoss()
 
 
 # Configuring training
-num_epochs = 1
+num_epochs = 2
 plot_every = 100
 print_every = 100
 
@@ -246,6 +246,8 @@ for epoch in range(0, num_epochs):
     # Shuffle
     step = 1
     num_steps = math.ceil(len(train_dataset) / batch_size)
+    encoder.batch_size = batch_size
+    decoder.batch_size = batch_size
     for batch in train_loader:
         input_variables, input_lengths = batch.src
         target_variables, target_lengths = batch.trg
@@ -277,7 +279,7 @@ for epoch in range(0, num_epochs):
         step += 1
 
         # stop when reaching certain steps
-        # if step == 1000:
+        # if step == 100:
         #     break
 
     # end epoch

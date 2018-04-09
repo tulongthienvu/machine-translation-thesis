@@ -9,10 +9,11 @@ def evaluate(data_loader, encoder, decoder, criterion, en_vocab, de_vocab, max_l
     encoder.batch_size = batch_size
     decoder.batch_size = batch_size
     i = 0
+    total_loss = 0
     for batch in data_loader:
         input_variables, input_lengths = batch.src
         target_variables, target_lengths = batch.trg
-        print(i)
+        # print(i)
         i += 1
         loss = 0
 
@@ -47,5 +48,6 @@ def evaluate(data_loader, encoder, decoder, criterion, en_vocab, de_vocab, max_l
             # Stop at end of sentence (not necessary when using known targers)
             if n_i[0] == de_vocab['</s>']:
                 break
-
-    return loss.data / max_target_length
+        total_loss += loss.data / (max_target_length / data_loader.batch_size)
+    # print(len(data_loader))
+    return total_loss
