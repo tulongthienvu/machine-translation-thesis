@@ -17,7 +17,7 @@ def evaluate(data_loader, encoder, decoder, criterion, en_vocab, de_vocab, max_l
         # Run words through encoder
         encoder_hidden = encoder.init_hidden(len(input_variables))
         encoder_outputs, encoder_hidden = encoder(input_variables, input_lengths, encoder_hidden)
-
+        #
         # Prepare input for decoder and output variables
         decoder_input = torch.zeros((len(input_variables), 1)).type(torch.LongTensor)
         decoder_input += de_vocab['<s>']
