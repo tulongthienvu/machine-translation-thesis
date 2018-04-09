@@ -41,7 +41,8 @@ import utils
 
 use_cuda = True
 batch_size = 32
-learning_rate = 0.01
+batch_size_valid = 1
+learning_rate = 0.001
 # # Load data
 
 data_path = './processed-data/id.1000/'
@@ -127,7 +128,7 @@ valid_dataset = LuongNMTDataset(src_path=data_path + 'valid.100.en',
                                 )
 
 valid_loader = torchtext.data.BucketIterator(dataset=valid_dataset,
-                                             batch_size=1,
+                                             batch_size=batch_size_valid,
                                              repeat=False,
                                              shuffle=False,
                                              sort_within_batch=True,
@@ -207,9 +208,9 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
 # ### Run training
 
 # Set hyperparameters
-embedding_size = 64
-hidden_size = 64
-num_layers = 1
+embedding_size = 1024
+hidden_size = 1024
+num_layers = 4
 dropout_p = 0.00
 
 # Initialize models
@@ -227,12 +228,12 @@ encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr=learning_rate)
 # encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
 # decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
-# criterion = nn.NLLLoss(ignore_index=1000)
-criterion = nn.NLLLoss()
+criterion = nn.NLLLoss(ignore_index=1000)
+# criterion = nn.NLLLoss()
 
 
 # Configuring training
-num_epochs = 2
+num_epochs = 10
 plot_every = 100
 print_every = 100
 
