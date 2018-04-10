@@ -35,9 +35,12 @@ import random
 import unicodedata
 import string
 import re
+import gc
 
 import scripts.text
 import utils
+
+torch.backends.cudnn.enabled = False
 
 use_cuda = True
 batch_size = 64
@@ -124,7 +127,8 @@ train_loader = torchtext.data.BucketIterator(dataset=train_dataset,
 
 valid_dataset = LuongNMTDataset(src_path=data_path + 'valid.100.en',
                                 trg_path=data_path + 'valid.100.de',
-                                fields=(src_field, trg_field)
+                                fields=(src_field, trg_field),
+                                MAX_LENGTH=50
                                 )
 
 valid_loader = torchtext.data.BucketIterator(dataset=valid_dataset,
@@ -163,7 +167,7 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
     if use_cuda:
         decoder_input = decoder_input.cuda()
     # Transpose target variables for mini-batch implement
-    target_variables.t_()
+    target_variables = target_variables.t()
     # Find max target lengths
     max_target_length = max(target_lengths)
     # Choose whether to use teacher forcing
@@ -196,7 +200,8 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
             #     break
 
     # Backpropagation
-    loss.backward()
+    loss.backward(retain_graph=False)
+    # loss.backward()
     nn.utils.clip_grad_norm(encoder.parameters(), clip)
     nn.utils.clip_grad_norm(decoder.parameters(), clip)
     encoder_optimizer.step()
@@ -204,6 +209,7 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
     # Convert Cuda Tensor to Float for saving VRAM
     # print(float(loss.data[0] / max_target_length))
     # print(loss.data[0] / max_target_length)
+    # gc.collect()
     return loss.data[0] / max_target_length
 
 
@@ -260,8 +266,8 @@ for epoch in range(0, num_epochs):
         loss = float(train(input_variables, input_lengths, target_variables, target_lengths, encoder, decoder,
                      encoder_optimizer, decoder_optimizer, criterion))
         print_loss_total += loss
-        plot_loss_total += loss
-
+        # plot_loss_total += loss
+        # print(print_loss_total)
         # if step == 0:
         #     step += 1
             #             continue
@@ -290,9 +296,10 @@ for epoch in range(0, num_epochs):
 
     # end epoch
     # evaluate on validation set
-    valid_total_loss = 0
-    valid_total_loss = float(evaluate(valid_loader, encoder, decoder, criterion, en_vocab, de_vocab))
+    valid_total_loss = 0.0
+    valid_total_loss = evaluate(valid_loader, encoder, decoder, criterion, en_vocab, de_vocab)
     print('Validation loss: %.4f' % (valid_total_loss / len(valid_dataset)))
+    # gc.collect()
 
 
 

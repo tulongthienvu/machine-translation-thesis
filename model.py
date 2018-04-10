@@ -32,12 +32,12 @@ class EncoderRNN(nn.Module):
     def forward(self, input_sentences, input_lengths, hidden):
         #         sentence_len = len(input_sentences)
         longest_length = input_lengths[0]
-        embedded = self.embedding(input_sentences)
-        embedded = self.dropout(embedded)
-        packed = rnn_utils.pack_padded_sequence(embedded, input_lengths, batch_first=True)
+        output = self.embedding(input_sentences)
+        output = self.dropout(output)
+        output = rnn_utils.pack_padded_sequence(output, input_lengths, batch_first=True)
         #         embedded = embedded.view(sentence_len, batch_size, -1)
         #         embedded = embedded.view(batch_size, longest_length, -1)
-        output, hidden = self.rnn(packed, hidden)
+        output, hidden = self.rnn(output, hidden)
         # print(output)
         return output, hidden
 
