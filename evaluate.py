@@ -45,6 +45,7 @@ def evaluate(data_loader, encoder, decoder, criterion, en_vocab, de_vocab, max_l
             # Stop at end of sentence (not necessary when using known targers)
             if n_i[0] == de_vocab['</s>']:
                 break
-        total_loss += loss.data / (max_target_length / data_loader.batch_size)
+        # Convert Cuda Tensor to Float for saving VRAM
+        total_loss += float(loss.data[0] / (max_target_length / data_loader.batch_size))
     # print(len(data_loader))
     return total_loss

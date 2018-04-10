@@ -40,12 +40,12 @@ import scripts.text
 import utils
 
 use_cuda = True
-batch_size = 32
+batch_size = 64
 batch_size_valid = 1
 learning_rate = 0.001
 # # Load data
 
-data_path = './processed-data/id.1000/'
+data_path = './processed-data/50k_vocab/'
 en_vocab_path = data_path + 'train.10k.en.vocab'
 de_vocab_path = data_path + 'train.10k.de.vocab'
 
@@ -96,7 +96,7 @@ src_field = torchtext.data.Field(sequential=True,
                                  #                                  tokenize=(lambda line: int(line)),
                                  postprocessing=post_processing,
                                  use_vocab=False,
-                                 pad_token='1000',
+                                 pad_token='50000',
                                  include_lengths=True,
                                  batch_first=True,
                                  )
@@ -105,7 +105,7 @@ trg_field = torchtext.data.Field(sequential=True,
                                  postprocessing=post_processing,
                                  use_vocab=False,
                                  include_lengths=True,
-                                 pad_token='1000',
+                                 pad_token='50000',
                                  batch_first=True
                                  )
 
@@ -148,7 +148,7 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
     # Zero gradient
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
-    loss = 0
+    loss = 0.0
 
     # Run words through encoder
     encoder_hidden = encoder.init_hidden(len(input_variables))
@@ -201,8 +201,10 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
     nn.utils.clip_grad_norm(decoder.parameters(), clip)
     encoder_optimizer.step()
     decoder_optimizer.step()
-
-    return loss.data / max_target_length
+    # Convert Cuda Tensor to Float for saving VRAM
+    # print(float(loss.data[0] / max_target_length))
+    # print(loss.data[0] / max_target_length)
+    return loss.data[0] / max_target_length
 
 
 # ### Run training
@@ -211,11 +213,11 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
 embedding_size = 1024
 hidden_size = 1024
 num_layers = 4
-dropout_p = 0.00
+dropout_p = 0.2
 
 # Initialize models
-encoder = EncoderRNN(len(en_vocab), embedding_size, hidden_size, num_layers)
-decoder = DecoderRNN(embedding_size, hidden_size, len(de_vocab), num_layers)
+encoder = EncoderRNN(len(en_vocab), embedding_size, hidden_size, num_layers, dropout_p=dropout_p)
+decoder = DecoderRNN(embedding_size, hidden_size, len(de_vocab), num_layers, dropout_p=dropout_p)
 
 # Move models to GPU
 if use_cuda:
@@ -228,25 +230,26 @@ encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr=learning_rate)
 # encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
 # decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
-criterion = nn.NLLLoss(ignore_index=1000)
+criterion = nn.NLLLoss(ignore_index=50000)
 # criterion = nn.NLLLoss()
 
 
 # Configuring training
 num_epochs = 10
 plot_every = 100
-print_every = 100
+print_every = 50
 
 # Keep track of time elapsed and running averages
 plot_losses = []
-print_loss_total = 0  # Reset every print every
-plot_loss_total = 0  # Reset every plot every
+print_loss_total = 0.0  # Reset every print every
+plot_loss_total = 0.0  # Reset every plot every
 
 # Running training
 start = time.time()
 for epoch in range(0, num_epochs):
     # start epoch
     # Shuffle
+    prev_step = 1
     step = 1
     num_steps = math.ceil(len(train_dataset) / batch_size)
 
@@ -254,18 +257,19 @@ for epoch in range(0, num_epochs):
         input_variables, input_lengths = batch.src
         target_variables, target_lengths = batch.trg
 
-        loss = train(input_variables, input_lengths, target_variables, target_lengths, encoder, decoder,
-                     encoder_optimizer, decoder_optimizer, criterion)
+        loss = float(train(input_variables, input_lengths, target_variables, target_lengths, encoder, decoder,
+                     encoder_optimizer, decoder_optimizer, criterion))
         print_loss_total += loss
         plot_loss_total += loss
 
-        if step == 0:
-            step += 1
+        # if step == 0:
+        #     step += 1
             #             continue
-            break
+            # break
 
         if step % print_every == 0 or step == num_steps:
-            print_loss_avg = print_loss_total / print_every
+            print_loss_avg = print_loss_total / (step - prev_step)
+            prev_step = step
             print_loss_total = 0
             print_summary = 'Epoch %s/%s, Time: %s, Step: %d/%d, train_loss: %.4f' % (epoch + 1, num_epochs,
                                                                                       utils.time_since(start,
@@ -274,10 +278,10 @@ for epoch in range(0, num_epochs):
                                                                                       num_steps, print_loss_avg)
             print(print_summary)
 
-        if step % plot_every == 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total
+        # if step % plot_every == 0:
+        #     plot_loss_avg = plot_loss_total / plot_every
+        #     plot_losses.append(plot_loss_avg)
+        #     plot_loss_total
         step += 1
 
         # stop when reaching certain steps
@@ -287,10 +291,7 @@ for epoch in range(0, num_epochs):
     # end epoch
     # evaluate on validation set
     valid_total_loss = 0
-    # for i in range(len(en_valid_sentences)):
-    #     input_variable = en_valid_sentences[i]
-    #     output_varible = de_valid_sentences[i]
-    valid_total_loss = evaluate(valid_loader, encoder, decoder, criterion, en_vocab, de_vocab)
+    valid_total_loss = float(evaluate(valid_loader, encoder, decoder, criterion, en_vocab, de_vocab))
     print('Validation loss: %.4f' % (valid_total_loss / len(valid_dataset)))
 
 
