@@ -11,7 +11,7 @@ class EncoderRNN(nn.Module):
         Model's encoder using RNN.
     """
 
-    def __init__(self, input_size, embedding_size, hidden_size, num_layers=1, dropout_p=0.0, use_cuda=True):
+    def __init__(self, input_size, embedding_size, hidden_size, num_layers=1, dropout_p=0.0, bidirectional=False, use_cuda=True):
         super(EncoderRNN, self).__init__()
 
         self.input_size = input_size
@@ -19,13 +19,17 @@ class EncoderRNN(nn.Module):
         self.num_layers = num_layers
         self.embedding_size = embedding_size
         self.dropout_p = dropout_p
+        self.bidirectional = bidirectional
 
         input_size += 1
         self.embedding = nn.Embedding(input_size, embedding_size, padding_idx=50000)
         # self.embedding = nn.Embedding(input_size + 1, embedding_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        self.rnn = nn.GRU(embedding_size, hidden_size, num_layers, batch_first=True)
-
+        # self.rnn = nn.GRU(embedding_size, hidden_size, num_layers, batch_first=True)
+        if self.bidirectional:
+            self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True, bidirectional=bidirectional)
+        else:
+            self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True)
         self.init_weights()
         self.use_cuda = use_cuda
 
@@ -37,19 +41,25 @@ class EncoderRNN(nn.Module):
         output = rnn_utils.pack_padded_sequence(output, input_lengths, batch_first=True)
         #         embedded = embedded.view(sentence_len, batch_size, -1)
         #         embedded = embedded.view(batch_size, longest_length, -1)
-        output, hidden = self.rnn(output, hidden)
+        output, (hidden, cell) = self.lstm(output, hidden)
         # print(output)
-        return output, hidden
+        return output, (hidden, cell)
 
     def init_hidden(self, actual_batch_size):
         """
             Initialize hidden state.
         """
         # hidden = Variable(torch.zeros(self.num_layers, self.batch_size, self.hidden_size))
-        hidden = Variable(torch.zeros(self.num_layers, actual_batch_size, self.hidden_size))
+        if self.bidirectional:
+            num_direction = 2
+        else:
+            num_direction = 1
+        hidden = Variable(torch.zeros(self.num_layers * num_direction, actual_batch_size, self.hidden_size))
+        cell = Variable(torch.zeros(self.num_layers * num_direction, actual_batch_size, self.hidden_size))
         if self.use_cuda:
             hidden = hidden.cuda()
-        return hidden
+            cell = cell.cuda()
+        return (hidden, cell)
 
     def init_weights(self):
         """
@@ -63,15 +73,24 @@ class DecoderRNN(nn.Module):
         Model's decoder using RNN.
     """
 
-    def __init__(self, embedding_size, hidden_size, output_size, num_layers=1, dropout_p=0.0, use_cuda=True):
+    def __init__(self, embedding_size, hidden_size, output_size, num_layers=1, dropout_p=0.0, bidirectional=False, use_cuda=True):
         super(DecoderRNN, self).__init__()
         output_size += 1
         self.embedding = nn.Embedding(output_size, embedding_size, padding_idx=50000)
         # self.embedding = nn.Embedding(output_size, embedding_size)
         self.dropout_p = dropout_p
+        self.bidirectional = bidirectional
         self.dropout = nn.Dropout(self.dropout_p)
-        self.rnn = nn.GRU(embedding_size, hidden_size, num_layers, batch_first=True)
-        self.linear_out = nn.Linear(hidden_size, output_size)
+        # self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True)
+        if self.bidirectional:
+            self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True, bidirectional=bidirectional)
+        else:
+            self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True)
+        if self.bidirectional:
+            self.linear_out = nn.Linear(hidden_size * 2, output_size)
+        else:
+            self.linear_out = nn.Linear(hidden_size, output_size)
+
         self.log_softmax = nn.LogSoftmax(dim=2)
         self.init_weights()
 
@@ -84,22 +103,28 @@ class DecoderRNN(nn.Module):
         output = F.relu(output)
         output = self.dropout(output)
         # output = rnn_utils.pack_sequence(output)
-        output, hidden = self.rnn(output, hidden)
+        output, (hidden, cell) = self.lstm(output, hidden)
         # print("Output: ", output)
         # output = self.log_softmax(self.linear_out(output[-1]))
         output = self.log_softmax(self.linear_out(output))  # Change dim for packed sequence
         output = output.view(len(input_vector), -1)
         # print("output final: ", output)
-        return output, hidden
+        return output, (hidden, cell)
 
     def init_hidden(self, actual_batch_size):
         """
             Initialize hidden state.
         """
-        hidden = Variable(torch.zeros(self.num_layers, actual_batch_size, self.hidden_size))
+        if self.bidirectional:
+            num_direction = 2
+        else:
+            num_direction = 1
+        hidden = Variable(torch.zeros(self.num_layers * num_direction, actual_batch_size, self.hidden_size))
+        cell = Variable(torch.zeros(self.num_layers * num_direction, actual_batch_size, self.hidden_size))
         if self.use_cuda:
             hidden = hidden.cuda()
-        return hidden
+            cell = cell.cuda()
+        return (hidden, cell)
 
     def init_weights(self):
         """

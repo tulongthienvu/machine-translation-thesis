@@ -25,6 +25,7 @@ import torch.nn.utils.rnn as rnn_utils
 import torchtext
 from tqdm import tqdm
 from model import EncoderRNN, DecoderRNN
+from torch.optim.lr_scheduler import MultiStepLR
 from evaluate import evaluate
 
 import numpy as np
@@ -45,7 +46,8 @@ torch.backends.cudnn.enabled = False
 use_cuda = True
 batch_size = 64
 batch_size_valid = 1
-learning_rate = 0.001
+learning_rate = 1.0
+
 # # Load data
 
 data_path = './processed-data/50k_vocab/'
@@ -207,8 +209,6 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
     encoder_optimizer.step()
     decoder_optimizer.step()
     # Convert Cuda Tensor to Float for saving VRAM
-    # print(float(loss.data[0] / max_target_length))
-    # print(loss.data[0] / max_target_length)
     # gc.collect()
     return loss.data[0] / max_target_length
 
@@ -216,14 +216,15 @@ def train(input_variables, input_lengths, target_variables, target_lengths, enco
 # ### Run training
 
 # Set hyperparameters
-embedding_size = 1024
-hidden_size = 1024
+embedding_size = 1000
+hidden_size = 500
 num_layers = 4
 dropout_p = 0.2
+bidirectional = True
 
 # Initialize models
-encoder = EncoderRNN(len(en_vocab), embedding_size, hidden_size, num_layers, dropout_p=dropout_p)
-decoder = DecoderRNN(embedding_size, hidden_size, len(de_vocab), num_layers, dropout_p=dropout_p)
+encoder = EncoderRNN(len(en_vocab), embedding_size, hidden_size, num_layers, dropout_p=dropout_p, bidirectional=bidirectional)
+decoder = DecoderRNN(embedding_size, hidden_size, len(de_vocab), num_layers, dropout_p=dropout_p, bidirectional=bidirectional)
 
 # Move models to GPU
 if use_cuda:
@@ -241,9 +242,11 @@ criterion = nn.NLLLoss(ignore_index=50000)
 
 
 # Configuring training
-num_epochs = 10
+num_epochs = 12
 plot_every = 100
 print_every = 50
+encoder_scheduler = MultiStepLR(encoder_optimizer, milestones=[8, 9, 10, 11, 12], gamma=0.5)
+decoder_scheduler = MultiStepLR(decoder_optimizer, milestones=[8, 9, 10, 11, 12], gamma=0.5)
 
 # Keep track of time elapsed and running averages
 plot_losses = []
@@ -253,6 +256,14 @@ plot_loss_total = 0.0  # Reset every plot every
 # Running training
 start = time.time()
 for epoch in range(0, num_epochs):
+    encoder_scheduler.step()
+    decoder_scheduler.step()
+    # for param_group in encoder_optimizer.param_groups:
+    #     print(param_group['lr'])
+    # for param_group in decoder_optimizer.param_groups:
+    #     print(param_group['lr'])
+    # print("*******")
+    # gc.collect()
     # start epoch
     # Shuffle
     prev_step = 1
@@ -296,7 +307,6 @@ for epoch in range(0, num_epochs):
 
     # end epoch
     # evaluate on validation set
-    valid_total_loss = 0.0
     valid_total_loss = evaluate(valid_loader, encoder, decoder, criterion, en_vocab, de_vocab)
     print('Validation loss: %.4f' % (valid_total_loss / len(valid_dataset)))
     # gc.collect()
