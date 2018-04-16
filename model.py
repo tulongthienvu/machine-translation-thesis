@@ -133,3 +133,32 @@ class DecoderRNN(nn.Module):
         self.embedding.weight.data.uniform_(-0.1, 0.1)
         self.linear_out.weight.data.uniform_(-0.1, 0.1)
         self.linear_out.bias.data.fill_(0)
+
+
+class Seq2Seq(nn.Module):
+    """
+    Sequence to Sequence model that contains encoder, decoder.
+    """
+
+    def __init__(self, encoder, decoder):
+        """
+        Constructor.
+        :param encoder: encoder model for Seq2Seq
+        :param decoder: decoder model for Seq2Seq
+        """
+        super(Seq2Seq, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def forward(self, input_sentences, input_lengths, target):
+        """
+
+        :param input_sentences:
+        :param input_lengths:
+        :param target:
+        :return:
+        """
+        encoder_outputs, encoder_hidden = self.encoder(input_sentences, input_lengths)
+        decoder_input = torch.zeros((len(input_variables), 1)).type(torch.LongTensor)
+        decoder_input += de_vocab['<s>']
+        decoder_hidden = encoder_hidden  # Use last hidden from the encoder

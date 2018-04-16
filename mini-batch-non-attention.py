@@ -235,10 +235,7 @@ if use_cuda:
 # learning_rate = 0.0001
 encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr=learning_rate)
-# encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
-# decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
 criterion = nn.NLLLoss(ignore_index=50000)
-# criterion = nn.NLLLoss()
 
 
 # Configuring training
@@ -258,12 +255,7 @@ start = time.time()
 for epoch in range(0, num_epochs):
     encoder_scheduler.step()
     decoder_scheduler.step()
-    # for param_group in encoder_optimizer.param_groups:
-    #     print(param_group['lr'])
-    # for param_group in decoder_optimizer.param_groups:
-    #     print(param_group['lr'])
-    # print("*******")
-    # gc.collect()
+
     # start epoch
     # Shuffle
     prev_step = 1
@@ -310,63 +302,3 @@ for epoch in range(0, num_epochs):
     valid_total_loss = evaluate(valid_loader, encoder, decoder, criterion, en_vocab, de_vocab)
     print('Validation loss: %.4f' % (valid_total_loss / len(valid_dataset)))
     # gc.collect()
-
-
-
-# # Evaluating the model
-
-# def evaluate(sentence, max_length=MAX_LENGTH):
-#     input_variable = Variable(torch.LongTensor(scripts.text.to_id(sentence.split(), en_vocab)))
-#     print(input_variable)
-#     if use_cuda:
-#         input_variable = input_variable.cuda()
-#
-#     input_length = len(input_variable)
-#
-#     encoder_hidden = encoder.init_hidden()
-#     encoder_outputs, encoder_hidden = encoder(input_variable, [len(input_variable)], encoder_hidden)
-#
-#     # Create starting vectors for decoder
-#     decoder_input = Variable(torch.LongTensor([[de_vocab['<s>']]]))
-#     decoder_hidden = encoder_hidden
-#
-#     if use_cuda:
-#         decoder_input = decoder_input.cuda()
-#
-#     decoded_words = []
-#
-#     # Run through decoder
-#     for d_i in range(max_length):
-#         decoder_output, decoder_hidden = decoder(
-#             decoder_input, decoder_hidden)
-#         # Pick most likely word index (highest value) from output (greedy search)
-#         top_value, top_index = decoder_output.data.topk(1)
-#         n_i = top_index[0][0]
-#         print(n_i)
-#         decoded_words += scripts.text.to_text([n_i], de_words)
-#
-#         # Stop at end of sentence (not necessary when using known targers)
-#         if n_i == de_vocab['</s>']:
-#             break
-#
-#         decoder_input = Variable(torch.LongTensor([[n_i]]))  # Chosen word is next input
-#
-#         if use_cuda:
-#             decoder_input = decoder_input.cuda()
-#
-#     return decoded_words
-#
-# def evaluate_sentence(s):
-#     valid_sentence = s
-#
-#     output_words = evaluate(valid_sentence)
-#     output_sentence = ' '.join(output_words)
-#
-#     print('>', valid_sentence)
-#     print('<', output_sentence)
-#     print('')
-#
-#
-# evaluate_sentence('i am a student and he is a teacher')
-#
-# evaluate_sentence('luck is no excuse and who has luck is successful')
